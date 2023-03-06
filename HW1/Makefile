@@ -1,7 +1,10 @@
-CC = gcc
-CFLAGS = -Wall -g
+TARGET=shell
 
-all:hw1.c
-	$(CC) $(CFLAGS) -o hw1 hw1.c
+$(TARGET): fig1_10.o error.o
+	$(CC) -o $@ $^ 
+
+fig1_10.o: fig1_10.c
+error.o: error.c
+
 clean:
-	rm -f hw1
+	rm -f fig1_10.o error.o $(TARGET)
