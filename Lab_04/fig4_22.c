@@ -6,7 +6,7 @@ typedef int Myfunc(const char *, const struct stat *, int);
 static Myfunc myfunc;
 static int myftw(char *, Myfunc *);
 static int dopath(Myfunc *);
-static long nreg, ndir, nblk, nchr, nfifo, nslink, nsock, ntot;
+static long nreg, ndir, nblk, nchr, nfifo, nslink, nsock, ntot, validlink, invalidlink, size;
 
 int main(int argc, char *argv[])
 {
@@ -30,6 +30,9 @@ int main(int argc, char *argv[])
 						nslink*100.0/ntot);
 		printf("sockets\t\t= %7ld, %5.2f %%\n", nsock,
 						nsock*100.0/ntot);
+		printf("valid\t\t= %7ld\n", validlink);
+		printf("invalid\t\t= %7ld\n", invalidlink);
+		printf("total size\t= %7ld\n", size);
 		exit(ret);
 }
 /*
@@ -73,6 +76,8 @@ static int dopath(Myfunc* func)/* we return whatever func() returns */
 		if ((ret = func(fullpath, &statbuf, FTW_D)) != 0)
 				return(ret);
 		ptr = fullpath + strlen(fullpath); /* point to end of fullpath */
+		if(chmod(fullpath,S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH) < 0) 
+			err_ret("Cant modify mode of %s",fullpath);
 		*ptr++ = '/';
 		*ptr = 0;
 		if ((dp = opendir(fullpath)) == NULL) /* can't read directory */
@@ -89,8 +94,11 @@ static int dopath(Myfunc* func)/* we return whatever func() returns */
 				err_ret("can't close directory %s", fullpath);
 		return(ret);
 }
+
 static int myfunc(const char *pathname, const struct stat *statptr, int type)
-{
+{	
+	size += (long)statptr -> st_size;
+	char buf[4096];
 		switch (type) {
 				case FTW_F:
 						switch (statptr->st_mode & S_IFMT) {
@@ -98,7 +106,10 @@ static int myfunc(const char *pathname, const struct stat *statptr, int type)
 								case S_IFBLK: nblk++; break;
 								case S_IFCHR: nchr++; break;
 								case S_IFIFO: nfifo++; break;
-								case S_IFLNK: nslink++; break;
+								case S_IFLNK: 
+									if(access(pathname, F_OK) == -1 || readlink(pathname, buf, 4096) == -1) invalidlink++;
+									else validlink++;
+									nslink++; break;
 								case S_IFSOCK: nsock++; break;
 								case S_IFDIR:
 											   err_dump("for S_IFDIR for %s", pathname);
